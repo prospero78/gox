@@ -7,13 +7,15 @@ package mouse
 import (
 	"syscall/js"
 
+	"github.com/prospero78/gox/internal/gox/doc"
 	"github.com/prospero78/gox/internal/gox/pos"
 )
 
 // TMouse -- операции с мышью
 type TMouse struct {
 	pos      *pos.TPos
-	callMove js.FuncOf
+	callMove js.Func
+	doc      *doc.TDoc
 }
 
 var (
@@ -27,8 +29,10 @@ func GetMouse() *TMouse {
 	}
 	mouse = &TMouse{
 		pos: pos.New(),
+		doc: doc.GetDoc(),
 	}
 	mouse.callMove = js.FuncOf(mouse.mouseMove)
+	mouse.doc.Bind("mousemove", mouse.callMove)
 	return mouse
 }
 

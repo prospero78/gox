@@ -10,18 +10,26 @@ import (
 	"syscall/js"
 
 	"github.com/prospero78/gox/internal/gox"
+	"github.com/prospero78/gox/internal/gox/size"
 )
 
 var (
-	ctx        js.Value
 	lineDistSq float64 = 100 * 100
 	win        *gox.TGox
+	sizeBody   *size.TSize
 )
 
 func main() {
 	win = gox.GetGox()
 	// Init Canvas stuff
-
+	sizeBody = size.New()
+	// w := js.Global().Get("window").Get("innerWidth").Float() - 100
+	h := js.Global().Get("window").Get("innerHeight").Float() - 50
+	w := js.Global().Get("document").Get("body").Get("clientWidth").Float()
+	// h := js.Global().Get("document").Get("body").Get("clientHeight").Float()
+	sizeBody.Set(w, h)
+	win.Body().SetSize(w, h)
+	win.Canvas().SizeSet(w, h)
 	done := make(chan struct{}, 0)
 
 	dt := DotThing{speed: 160, size: 6}
@@ -83,13 +91,6 @@ func main() {
 	})
 	defer dashedChangeEvt.Release()
 
-	doc.Call("addEventListener", "mousemove", mouseMoveEvt)
-	// doc.Call("getElementById", "count").Call("addEventListener", "change", countChangeEvt)
-	// doc.Call("getElementById", "speed").Call("addEventListener", "input", speedInputEvt)
-	// doc.Call("getElementById", "size").Call("addEventListener", "input", sizeChangeEvt)
-	// doc.Call("getElementById", "dashed").Call("addEventListener", "change", dashedChangeEvt)
-	// doc.Call("getElementById", "lines").Call("addEventListener", "change", lineChangeEvt)
-
 	dt.SetNDots(100)
 	dt.lines = false
 	var renderFrame js.Func
@@ -109,13 +110,14 @@ func main() {
 		tmark = now
 
 		// Pull window size to handle resize
-		curBodyW := doc.Get("body").Get("clientWidth").Float()
-		curBodyH := doc.Get("body").Get("clientHeight").Float()
-		if curBodyW != width || curBodyH != height {
-			width, height = curBodyW, curBodyH
-			canvasEl.Set("width", width)
-			canvasEl.Set("height", height)
+		sW, sH := win.Body().GetSize()
+		if sW != sizeBody.Width().Get() {
+			if sH != sizeBody.Height().Get() {
+				sizeBody.Set(sW, sH)
+				win.Canvas().SizeSet(sW, sH)
+			}
 		}
+
 		dt.Update(tdiff / 1000)
 
 		js.Global().Call("requestAnimationFrame", renderFrame)
@@ -144,6 +146,9 @@ func (dt *DotThing) Update(dtTime float64) {
 	if dt.dots == nil {
 		return
 	}
+	width := win.Canvas().Size().Width().Get()
+	height := win.Canvas().Size().Height().Get()
+	ctx := win.Canvas().Ctx()
 	ctx.Call("clearRect", 0, 0, width, height)
 
 	// Update
@@ -183,14 +188,16 @@ func (dt *DotThing) Update(dtTime float64) {
 		ctx.Call("arc", dot.pos[0], dot.pos[1], dt.size, 0, 2*math.Pi)
 		ctx.Call("fill")
 
-		mdx := mousePos[0] - dot.pos[0]
-		mdy := mousePos[1] - dot.pos[1]
+		mX := win.Mouse().Pos().X().Get()
+		mY := win.Mouse().Pos().Y().Get()
+		mdx := mX - dot.pos[0]
+		mdy := mY - dot.pos[1]
 		d := math.Sqrt(mdx*mdx + mdy*mdy)
 		if d < 200 {
 			ctx.Set("globalAlpha", 1-d/200)
 			ctx.Call("beginPath")
 			ctx.Call("moveTo", dot.pos[0], dot.pos[1])
-			ctx.Call("lineTo", mousePos[0], mousePos[1])
+			ctx.Call("lineTo", mX, mY)
 			ctx.Call("stroke")
 			if d > 100 { // move towards mouse
 				dir[0] = (mdx / d) * 2
@@ -223,6 +230,8 @@ func (dt *DotThing) Update(dtTime float64) {
 
 // SetNDots reinitializes dots with n size
 func (dt *DotThing) SetNDots(n int) {
+	width := win.Canvas().Size().Width().Get()
+	height := win.Canvas().Size().Height().Get()
 	dt.dots = make([]*Dot, n)
 	for i := 0; i < n; i++ {
 		dt.dots[i] = &Dot{

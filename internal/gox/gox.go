@@ -3,6 +3,9 @@ package gox
 import (
 	"syscall/js"
 
+	"github.com/prospero78/gox/internal/gox/canvas"
+	"github.com/prospero78/gox/internal/gox/doc"
+	"github.com/prospero78/gox/internal/gox/doc/body"
 	"github.com/prospero78/gox/internal/gox/mouse"
 	"github.com/prospero78/gox/internal/gox/size"
 )
@@ -13,11 +16,12 @@ import (
 
 // TGox -- графический браузерный сервер
 type TGox struct {
-	size   *size.TSize   // Размеры экрана
-	mouse  *mouse.TMouse // Объект мыши
-	doc    js.Value
-	canvas js.Value
-	ctx    js.Value // Контекст рисования
+	size   *size.TSize     // Размеры экрана
+	mouse  *mouse.TMouse   // Объект мыши
+	doc    *doc.TDoc       // ОБъект документа браузера
+	body   *body.TBody     // Тело документа
+	canvas *canvas.TCanvas // Хост для рисования
+	ctx    js.Value        // Контекст рисования
 }
 
 var (
@@ -30,16 +34,12 @@ func GetGox() *TGox {
 		return gox
 	}
 	gox = &TGox{
-		size:  size.New(),
-		doc:   js.Global().Get("document"),
-		mouse: mouse.GetMouse(),
+		size:   size.New(),
+		doc:    doc.GetDoc(),
+		mouse:  mouse.GetMouse(),
+		body:   body.GetBody(),
+		canvas: canvas.GetCanvas(),
 	}
-	gox.canvas = gox.doc.Call("getElementById", "mycanvas")
-	w := gox.doc.Get("body").Get("clientWidth").Float()
-	h := gox.doc.Get("body").Get("clientHeight").Float()
-	gox.canvas.Set("width", w)
-	gox.canvas.Set("height", h)
-	gox.ctx = gox.canvas.Call("getContext", "2d")
 	// gox.size.Set(w, h)
 	return gox
 }
@@ -57,4 +57,19 @@ func (sf *TGox) Mouse() *mouse.TMouse {
 // Close -- обязательный вызов в конце работы
 func (sf *TGox) Close() {
 	sf.mouse.Close()
+}
+
+// Doc -- возвращает объект размера документа
+func (sf *TGox) Doc() *doc.TDoc {
+	return sf.doc
+}
+
+// Body -- возвращает объект размера документа
+func (sf *TGox) Body() *body.TBody {
+	return sf.body
+}
+
+// Canvas -- возвращает объект хоста
+func (sf *TGox) Canvas() *canvas.TCanvas {
+	return sf.canvas
 }
