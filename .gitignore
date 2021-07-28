@@ -1,1 +1,4 @@
-/bin
+/bin/main.wasm
+/bin/srv
+/bin/srv-race
+/.VSCodeCounter
